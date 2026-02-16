@@ -8,7 +8,7 @@
 #groups-panel {
     width: 30%;
     height: 100%;
-    border: solid white;
+    border: round white;
     border-title-align: left;
     border-title-color: white;
 }
@@ -22,7 +22,7 @@
 /* Chat panel - fills available vertical space */
 #chat-panel {
     height: 1fr;
-    border: solid white;
+    border: round white;
     border-title-align: left;
     border-title-color: white;
 }
@@ -30,7 +30,7 @@
 /* Input panel - 5 lines total for 3 lines of input */
 #input-panel {
     height: 5;
-    border: solid white;
+    border: round white;
     border-title-align: left;
     border-title-color: white;
 }
