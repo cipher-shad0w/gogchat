@@ -14,10 +14,15 @@ Screen {
 #groups-panel {
     width: 30%;
     height: 100%;
-    border: round white;
+    border: round gray;
     border-title-align: left;
-    border-title-color: white;
+    border-title-color: gray;
     background: #121212;
+}
+
+#groups-panel:focus-within {
+    border: round white;
+    border-title-color: white;
 }
 
 /* ListView - override default $surface and focus tint */
@@ -68,10 +73,15 @@ ListItem.-selected {
 /* Chat panel - fills available vertical space */
 #chat-panel {
     height: 1fr;
-    border: round white;
+    border: round gray;
     border-title-align: left;
-    border-title-color: white;
+    border-title-color: gray;
     background: #121212;
+}
+
+#chat-panel:focus-within {
+    border: round white;
+    border-title-color: white;
 }
 
 /* RichLog - override default $surface and focus tint */
@@ -87,10 +97,15 @@ RichLog:focus {
 /* Input panel - 5 lines total for 3 lines of input */
 #input-panel {
     height: 5;
-    border: round white;
+    border: round gray;
     border-title-align: left;
-    border-title-color: white;
+    border-title-color: gray;
     background: #121212;
+}
+
+#input-panel:focus-within {
+    border: round white;
+    border-title-color: white;
 }
 
 /* TextArea styling - override $surface and all internal component backgrounds */
