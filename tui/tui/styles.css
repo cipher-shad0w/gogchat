@@ -1,22 +1,68 @@
+/* Uniform background color */
+Screen {
+    background: #121212;
+}
+
 /* Main horizontal layout */
 #main-container {
     width: 100%;
     height: 100%;
+    background: #121212;
 }
 
-/* Groups panel - left side, 20% width */
+/* Groups panel - left side, 30% width */
 #groups-panel {
     width: 30%;
     height: 100%;
     border: round white;
     border-title-align: left;
     border-title-color: white;
+    background: #121212;
 }
 
-/* Main content area - right side, 80% width */
+/* ListView - override default $surface and focus tint */
+ListView {
+    background: #121212;
+    background-tint: #121212 0%;
+}
+
+ListView:focus {
+    background-tint: #121212 0%;
+}
+
+/* ListItem - override all states */
+ListItem {
+    background: #121212;
+}
+
+ListView > ListItem.-hovered {
+    background: #121212;
+}
+
+ListItem.-highlight {
+    background: #121212;
+}
+
+ListView:focus > ListItem.-highlight {
+    background: #121212;
+}
+
+ListItem:hover {
+    color: white;
+    text-style: bold;
+    background: #121212;
+}
+
+ListItem.-selected {
+    color: white;
+    text-style: bold;
+}
+
+/* Main content area - right side, 70% width */
 #main-content {
     width: 70%;
     height: 100%;
+    background: #121212;
 }
 
 /* Chat panel - fills available vertical space */
@@ -25,6 +71,17 @@
     border: round white;
     border-title-align: left;
     border-title-color: white;
+    background: #121212;
+}
+
+/* RichLog - override default $surface and focus tint */
+RichLog {
+    background: #121212;
+    background-tint: #121212 0%;
+}
+
+RichLog:focus {
+    background-tint: #121212 0%;
 }
 
 /* Input panel - 5 lines total for 3 lines of input */
@@ -33,22 +90,26 @@
     border: round white;
     border-title-align: left;
     border-title-color: white;
+    background: #121212;
 }
 
-ListItem:hover {
-    color: white;
-    text-style: bold;
-}
-
-ListItem.-selected {
-    color: white;
-    text-style: bold;
-}
-
-/* TextArea styling - remove internal decorations */
+/* TextArea styling - override $surface and all internal component backgrounds */
 TextArea {
     height: 100%;
     width: 100%;
+    border: none;
+    background: #121212;
+}
+
+TextArea .text-area--cursor-line {
+    background: #121212;
+}
+
+TextArea .text-area--cursor-gutter {
+    background: #121212;
+}
+
+TextArea:focus {
     border: none;
 }
 
@@ -56,4 +117,13 @@ TextArea {
     height: 100%;
     width: 100%;
     border: none;
+    background: #121212;
+}
+
+/* Scrollbar styling to match */
+Widget {
+    scrollbar-background: #121212;
+    scrollbar-background-hover: #121212;
+    scrollbar-background-active: #121212;
+    scrollbar-corner-color: #121212;
 }
