@@ -1,5 +1,6 @@
 """Main application class for the gchat TUI."""
 
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -53,10 +54,23 @@ def _format_reactions(reactions: list[dict]) -> str:
     return "[dim]" + "  ".join(parts) + "[/dim]"
 
 
+def _resource_path(relative: str) -> Path:
+    """Resolve a resource path, compatible with PyInstaller bundles.
+
+    When running inside a PyInstaller bundle, ``sys._MEIPASS`` points to the
+    temporary directory where bundled files are extracted.  Outside of a
+    bundle the path is resolved relative to *this* source file.
+    """
+    base = getattr(sys, "_MEIPASS", None)
+    if base is not None:
+        return Path(base) / relative
+    return Path(__file__).parent / relative
+
+
 class ChatApp(App):
     """A Textual app for gchat with a Spotify-style minimal TUI."""
 
-    CSS_PATH = Path(__file__).parent / "styles.css"
+    CSS_PATH = _resource_path("styles.css")
 
     BINDINGS = [
         ("q", "quit", "Quit"),

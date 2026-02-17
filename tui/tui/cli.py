@@ -8,6 +8,7 @@ import json
 import logging
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from tui.cache import get_cache
@@ -116,8 +117,11 @@ def save_name_override(user_id: str, display_name: str) -> None:
 def get_gogchat_path() -> str:
     """Find the path to the gogchat binary.
 
-    First checks if gogchat is available in PATH. If not, looks for it
-    relative to the tui package (../../gogchat).
+    Resolution order:
+    1. ``gogchat`` on the system ``PATH``.
+    2. Next to the current executable (covers Homebrew / PyInstaller bundles
+       where both ``gogchat`` and ``gogchat-tui`` live in the same ``bin/``).
+    3. Relative to this source file (``../../gogchat`` — development layout).
 
     Returns:
         The absolute path to the gogchat binary.
@@ -125,12 +129,18 @@ def get_gogchat_path() -> str:
     Raises:
         FileNotFoundError: If the gogchat binary cannot be found.
     """
-    # First, check if gogchat is in PATH
+    # 1. Check if gogchat is in PATH
     path_result = shutil.which("gogchat")
     if path_result is not None:
         return path_result
 
-    # Look for it relative to this package (../../gogchat)
+    # 2. Check next to the running executable (Homebrew / PyInstaller bundle)
+    exe_dir = Path(sys.executable).resolve().parent
+    sibling = exe_dir / "gogchat"
+    if sibling.is_file():
+        return str(sibling)
+
+    # 3. Development layout: look relative to this package (../../gogchat)
     package_dir = Path(__file__).parent
     relative_path = package_dir / ".." / ".." / "gogchat"
     resolved_path = relative_path.resolve()

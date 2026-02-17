@@ -1,0 +1,68 @@
+name: Build TUI
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Release version tag"
+        required: true
+        type: string
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            goos: darwin
+            goarch: arm64
+            artifact: gogchat-tui_darwin_arm64
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
+            artifact: gogchat-tui_darwin_amd64
+          - os: ubuntu-22.04
+            goos: linux
+            goarch: amd64
+            artifact: gogchat-tui_linux_amd64
+
+    runs-on: ${{ matrix.os }}
+    name: Build TUI (${{ matrix.goos }}/${{ matrix.goarch }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: tui
+        run: |
+          python -m pip install --upgrade pip
+          pip install ".[build]"
+
+      - name: Build with PyInstaller
+        working-directory: tui
+        run: |
+          pyinstaller gogchat-tui.spec --clean --noconfirm
+
+      - name: Verify binary
+        working-directory: tui
+        run: |
+          ls -lh dist/gogchat-tui*
+          file dist/gogchat-tui*
+
+      - name: Create archive
+        working-directory: tui/dist
+        run: |
+          tar czf ${{ matrix.artifact }}.tar.gz gogchat-tui
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: tui/dist/${{ matrix.artifact }}.tar.gz
+          retention-days: 1

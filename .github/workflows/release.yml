@@ -9,7 +9,13 @@ permissions:
   contents: write
 
 jobs:
+  build-tui:
+    uses: ./.github/workflows/build-tui.yml
+    with:
+      version: ${{ github.ref_name }}
+
   release:
+    needs: build-tui
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,6 +28,15 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Download TUI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: tui-dist
+          pattern: gogchat-tui_*
+
+      - name: List TUI artifacts
+        run: find tui-dist -type f | sort
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -32,3 +47,87 @@ jobs:
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GOGCHAT_CLIENT_ID: ${{ secrets.GOGCHAT_CLIENT_ID }}
           GOGCHAT_CLIENT_SECRET: ${{ secrets.GOGCHAT_CLIENT_SECRET }}
+
+      - name: Upload TUI binaries to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for archive in tui-dist/gogchat-tui_*/*.tar.gz; do
+            echo "Uploading $archive"
+            gh release upload "${{ github.ref_name }}" "$archive" --clobber
+          done
+
+  publish-tui-formula:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download TUI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: tui-dist
+          pattern: gogchat-tui_*
+
+      - name: Compute checksums
+        id: checksums
+        run: |
+          echo "sha_darwin_arm64=$(sha256sum tui-dist/gogchat-tui_darwin_arm64/gogchat-tui_darwin_arm64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "sha_darwin_amd64=$(sha256sum tui-dist/gogchat-tui_darwin_amd64/gogchat-tui_darwin_amd64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "sha_linux_amd64=$(sha256sum tui-dist/gogchat-tui_linux_amd64/gogchat-tui_linux_amd64.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Homebrew formula
+        env:
+          VERSION: ${{ github.ref_name }}
+          SHA_DARWIN_ARM64: ${{ steps.checksums.outputs.sha_darwin_arm64 }}
+          SHA_DARWIN_AMD64: ${{ steps.checksums.outputs.sha_darwin_amd64 }}
+          SHA_LINUX_AMD64: ${{ steps.checksums.outputs.sha_linux_amd64 }}
+        run: |
+          VER="${VERSION#v}"
+          cat > gogchat-tui.rb << EOF
+          class GogchatTui < Formula
+            desc "TUI for the Google Chat API (companion to gogchat)"
+            homepage "https://github.com/cipher-shad0w/gogchat"
+            license "MIT"
+            version "${VER}"
+
+            depends_on "cipher-shad0w/tap/gogchat"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/cipher-shad0w/gogchat/releases/download/${VERSION}/gogchat-tui_darwin_arm64.tar.gz"
+                sha256 "${SHA_DARWIN_ARM64}"
+              else
+                url "https://github.com/cipher-shad0w/gogchat/releases/download/${VERSION}/gogchat-tui_darwin_amd64.tar.gz"
+                sha256 "${SHA_DARWIN_AMD64}"
+              end
+            end
+
+            on_linux do
+              url "https://github.com/cipher-shad0w/gogchat/releases/download/${VERSION}/gogchat-tui_linux_amd64.tar.gz"
+              sha256 "${SHA_LINUX_AMD64}"
+            end
+
+            def install
+              bin.install "gogchat-tui"
+            end
+
+            test do
+              assert_match "gogchat", shell_output("#{bin}/gogchat-tui --help 2>&1", 1)
+            end
+          end
+          EOF
+          cat gogchat-tui.rb
+
+      - name: Push formula to homebrew-tap
+        env:
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          git clone "https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/cipher-shad0w/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp gogchat-tui.rb tap/Formula/gogchat-tui.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/gogchat-tui.rb
+          git diff --cached --quiet || git commit -m "Update gogchat-tui formula to ${VERSION#v}"
+          git push
