@@ -95,8 +95,8 @@ class ChatApp(App):
             chat_log.write_message("[dim]No messages in this space[/dim]")
             return
 
-        # Display messages in chronological order (oldest first)
-        # The API returns newest first, so we reverse
+        # First pass: resolve all sender names and find the longest one
+        resolved_names: list[tuple[str, bool]] = []  # (display_name, is_resolved)
         for msg in messages:
             sender = msg.get("sender", {})
             sender_name = sender.get("displayName")
@@ -104,12 +104,22 @@ class ChatApp(App):
             resolved = True
 
             if not sender_name:
-                # Try to resolve from user_name_map
                 sender_name = user_name_map.get(user_id)
                 if not sender_name:
                     sender_name = user_id or "Unknown"
                     resolved = False
 
+            resolved_names.append((sender_name, resolved))
+
+        # Calculate the max width of "name:" to align the text column
+        max_name_len = max(
+            (len(name) + 1 for name, _ in resolved_names), default=0
+        )  # +1 for the colon
+
+        # Second pass: render messages with aligned columns
+        for msg, (sender_name, resolved) in zip(messages, resolved_names):
+            sender = msg.get("sender", {})
+            user_id = sender.get("name", "")
             text = msg.get("text", "")
 
             # Parse the send time from createTime (e.g. "2025-01-15T11:23:45.123Z")
@@ -124,8 +134,11 @@ class ChatApp(App):
                 except (ValueError, OSError):
                     pass
 
-            # Create MessageItem directly with metadata
-            content = f"{time_str}[bold]{sender_name}:[/bold] {text}"
+            # Pad "name:" to max_name_len so text column aligns
+            name_with_colon = f"{sender_name}:"
+            padding = " " * (max_name_len - len(name_with_colon) + 1)
+            content = f"{time_str}[bold]{name_with_colon}[/bold]{padding}{text}"
+
             item = MessageItem(
                 content,
                 sender_user_id=user_id if user_id else None,
