@@ -90,20 +90,17 @@ ListItem.-selected {
 .msg-row {
     width: 100%;
     height: auto;
-    background: #121212;
 }
 
 /* Prefix column: fixed width, no shrink */
 .msg-prefix {
     height: auto;
-    background: #121212;
 }
 
 /* Body column: fills remaining width, wraps text */
 .msg-body {
     width: 1fr;
     height: auto;
-    background: #121212;
 }
 
 /* Input panel - 5 lines total for 3 lines of input */
