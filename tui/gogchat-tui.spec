@@ -33,7 +33,9 @@ exe = EXE(
     name="gogchat-tui",
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
+    # strip=False: stripping symbols on macOS arm64 can corrupt embedded archive offsets,
+    # causing the one-file binary to hang silently on launch.
+    strip=False,
     upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
@@ -41,6 +43,8 @@ exe = EXE(
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
-    codesign_identity='-',
+    # codesign_identity=None: skip ad-hoc signing here; CI handles signing after the build.
+    # Double-signing (PyInstaller + CI) can invalidate the binary.
+    codesign_identity=None,
     entitlements_file=None,
 )

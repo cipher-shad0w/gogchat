@@ -58,6 +58,11 @@ jobs:
           ls -lh dist/gogchat-tui*
           file dist/gogchat-tui*
 
+      - name: Smoke test binary
+        working-directory: tui
+        run: |
+          ./dist/gogchat-tui --version
+
       - name: Create archive
         working-directory: tui/dist
         run: |
