@@ -32,4 +32,4 @@ __pycache__/
 .venv/
 .build-venv/
 build/
-*.spec.bak
+*.spec.baktui-dist/
