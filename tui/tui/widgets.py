@@ -101,6 +101,7 @@ class ChatLog(ListView):
         """Write a message as a new selectable list item."""
         self._raw_entries.append(content)
         self.append(MessageItem(content))
+        self.index = len(self._raw_entries) - 1
 
     def clear(self) -> "ChatLog":
         """Clear all messages."""

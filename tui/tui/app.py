@@ -86,6 +86,10 @@ class ChatApp(App):
             # Format: [bold]Sender:[/bold] Message text
             chat_log.write_message(f"[bold]{sender_name}:[/bold] {text}")
 
+        # Always select the newest (last) message and scroll to it
+        chat_log.index = len(chat_log) - 1
+        chat_log.scroll_visible()
+
     def on_message_input_submitted(self, event: MessageInput.Submitted) -> None:
         """Handle message submission from the input panel."""
         if not self.current_space:
