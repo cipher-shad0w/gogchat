@@ -45,6 +45,13 @@ jobs:
         run: |
           pyinstaller gogchat-tui.spec --clean --noconfirm
 
+      - name: Re-sign binary (macOS)
+        if: runner.os == 'macOS'
+        working-directory: tui
+        run: |
+          codesign --force --deep --sign - dist/gogchat-tui
+          codesign -vv dist/gogchat-tui
+
       - name: Verify binary
         working-directory: tui
         run: |
