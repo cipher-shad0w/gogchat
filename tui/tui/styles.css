@@ -201,3 +201,25 @@ NameInputScreen {
     width: 1fr;
     height: auto;
 }
+
+/* Toast notification styling */
+Toast {
+    background: #1e1e1e;
+    color: white;
+    border: round gray;
+}
+
+Toast.-error {
+    background: #3d1111;
+    border: round #e74c3c;
+}
+
+Toast.-warning {
+    background: #3d3511;
+    border: round #f39c12;
+}
+
+Toast.-information {
+    background: #113d1e;
+    border: round #2ecc71;
+}

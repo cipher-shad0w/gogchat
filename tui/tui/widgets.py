@@ -1,5 +1,7 @@
 """Custom widgets for the gchat TUI."""
 
+import logging
+
 from textual import events, work
 from textual.app import ComposeResult
 from textual.await_remove import AwaitRemove
@@ -7,6 +9,8 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.widgets import Input, Label, ListItem, ListView, Static, TextArea
+
+logger = logging.getLogger(__name__)
 
 
 class SpaceItem(ListItem):
@@ -89,6 +93,15 @@ class GroupsPanel(Static):
 
         spaces = list_spaces_fresh()
 
+        if not spaces and not self._current_spaces:
+            # No spaces returned and nothing cached — might be an error
+            self.app.call_from_thread(
+                self.app.notify,
+                "No spaces found — check connection or auth",
+                severity="warning",
+                timeout=5,
+            )
+
         # Only re-render if the spaces list has actually changed
         if not self._spaces_unchanged(spaces):
             self.app.call_from_thread(self._populate_spaces, spaces)
@@ -132,8 +145,12 @@ class GroupsPanel(Static):
                     name, is_unread = future.result()
                     if is_unread:
                         unread_spaces.add(name)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to check unread state for %s: %s",
+                        futures[future],
+                        exc,
+                    )
 
         # Cache the unread states for instant display next time
         from tui.cache import get_cache

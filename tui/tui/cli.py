@@ -16,6 +16,54 @@ from tui.config import get_config
 logger = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Exception hierarchy
+# ---------------------------------------------------------------------------
+
+
+class GogchatError(Exception):
+    """Base exception for gogchat CLI errors."""
+
+    def __init__(self, message: str, stderr: str = ""):
+        self.stderr = stderr
+        super().__init__(message)
+
+
+class BinaryNotFoundError(GogchatError):
+    """The gogchat binary could not be found."""
+
+
+class AuthenticationError(GogchatError):
+    """Authentication with Google Chat failed (token expired/missing)."""
+
+
+class ApiError(GogchatError):
+    """A gogchat CLI command failed."""
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _is_auth_error(stderr: str) -> bool:
+    """Check if a stderr message indicates an authentication problem."""
+    lower = stderr.lower()
+    return any(
+        kw in lower
+        for kw in (
+            "token",
+            "auth",
+            "credential",
+            "login",
+            "401",
+            "403",
+            "oauth",
+            "unauthenticated",
+        )
+    )
+
+
 def _names_file_path() -> Path:
     """Return the path to the user name overrides file."""
     return Path.home() / ".config" / "gogchat" / "names.json"
@@ -95,6 +143,63 @@ def get_gogchat_path() -> str:
     )
 
 
+def check_binary() -> tuple[bool, str]:
+    """Check if the gogchat binary is available.
+
+    Returns:
+        Tuple of (is_available, error_message).
+    """
+    try:
+        get_gogchat_path()
+        return (True, "")
+    except FileNotFoundError as e:
+        return (False, str(e))
+
+
+def check_auth() -> tuple[bool, str]:
+    """Check if the user is authenticated by attempting a simple API call.
+
+    Returns:
+        Tuple of (is_authenticated, error_message).
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        return (False, f"Binary not found: {e}")
+
+    try:
+        result = subprocess.run(
+            [gogchat_path, "spaces", "list", "--json", "--page-size", "1"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.lower()
+            if any(
+                kw in stderr
+                for kw in (
+                    "token",
+                    "auth",
+                    "credential",
+                    "login",
+                    "401",
+                    "403",
+                    "oauth",
+                )
+            ):
+                return (
+                    False,
+                    "Authentication expired or missing. Run: gogchat auth login",
+                )
+            return (False, f"gogchat error: {result.stderr.strip()}")
+        return (True, "")
+    except subprocess.TimeoutExpired:
+        return (False, "gogchat timed out — check network connection")
+    except OSError as e:
+        return (False, f"Failed to run gogchat: {e}")
+
+
 def list_spaces() -> list[dict]:
     """List all Google Chat spaces.
 
@@ -124,6 +229,8 @@ def list_spaces() -> list[dict]:
             check=True,
         )
     except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
         logger.error(
             "Failed to list spaces: %s (exit code %d, stderr: %s)",
             e,
@@ -180,6 +287,8 @@ def list_messages(space_name: str, limit: int = 25) -> list[dict]:
             check=True,
         )
     except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
         logger.error(
             "Failed to list messages for space %s: %s (exit code %d, stderr: %s)",
             space_name,
@@ -223,6 +332,8 @@ def send_message(space_name: str, text: str) -> bool:
             check=True,
         )
     except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
         logger.error(
             "Failed to send message to space %s: %s (exit code %d, stderr: %s)",
             space_name,
@@ -271,6 +382,8 @@ def list_members(space_name: str) -> list[dict]:
             check=True,
         )
     except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
         logger.error(
             "Failed to list members for space %s: %s (exit code %d, stderr: %s)",
             space_name,
@@ -341,6 +454,8 @@ def get_space_read_state(space_name: str) -> str | None:
             check=True,
         )
     except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
         logger.error(
             "Failed to get read state for %s: %s (exit code %d, stderr: %s)",
             space_name,
@@ -394,6 +509,8 @@ def update_space_read_state(space_name: str, last_read_time: str) -> bool:
             check=True,
         )
     except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
         logger.error(
             "Failed to update read state for %s: %s (exit code %d, stderr: %s)",
             space_name,

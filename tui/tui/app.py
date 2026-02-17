@@ -39,6 +39,34 @@ class ChatApp(App):
         self._current_messages = []
         self._current_user_name_map = {}
 
+    async def on_mount(self) -> None:
+        """Run startup checks when the app mounts."""
+        self._check_startup()
+
+    @work(thread=True)
+    def _check_startup(self) -> None:
+        """Check binary availability and authentication on startup."""
+        from tui.cli import check_binary, check_auth
+
+        ok, err = check_binary()
+        if not ok:
+            self.call_from_thread(
+                self.notify,
+                f"gogchat binary not found!\n{err}",
+                severity="error",
+                timeout=10,
+            )
+            return
+
+        ok, err = check_auth()
+        if not ok:
+            self.call_from_thread(
+                self.notify,
+                err,
+                severity="error",
+                timeout=10,
+            )
+
     def compose(self) -> ComposeResult:
         """Create the application layout."""
         with Horizontal(id="main-container"):
@@ -221,7 +249,13 @@ class ChatApp(App):
         """Mark a space as read up to the given time in the background."""
         from tui.cli import update_space_read_state
 
-        update_space_read_state(space_name, last_read_time)
+        if not update_space_read_state(space_name, last_read_time):
+            self.call_from_thread(
+                self.notify,
+                "Failed to update read state",
+                severity="warning",
+                timeout=3,
+            )
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle Enter on a chat message to assign a name to unknown senders."""
@@ -269,6 +303,13 @@ class ChatApp(App):
             get_cache().invalidate_messages(space_name)
             # Reload messages to show the sent message
             self.call_from_thread(self.load_messages, space_name)
+        else:
+            self.call_from_thread(
+                self.notify,
+                "Failed to send message",
+                severity="error",
+                timeout=5,
+            )
 
     def action_refresh_spaces(self) -> None:
         """Refresh the spaces list."""
