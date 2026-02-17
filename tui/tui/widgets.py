@@ -54,18 +54,46 @@ class GroupsPanel(Static):
     def on_mount(self) -> None:
         """Set the border title and load spaces."""
         self.border_title = "Groups"
+        self._current_spaces: list[dict] = []
         self.load_spaces()
 
-    @work(thread=True)
     def load_spaces(self) -> None:
-        """Load spaces from the CLI in a background thread."""
-        from tui.cli import list_spaces
+        """Load spaces — show cached data instantly, then refresh from API."""
+        # Phase 0: Show cached data immediately (runs on the main thread)
+        from tui.cache import get_cache
 
-        spaces = list_spaces()
+        cached_spaces = get_cache().get_spaces()
+        if cached_spaces:
+            # Show cached spaces immediately
+            cached_unread = get_cache().get_unread_states()
+            unread_set: set[str] = set()
+            if cached_unread:
+                # Spaces with entries are the ones that had unread messages last time
+                unread_set = set(cached_unread.keys())
+            self._populate_spaces(cached_spaces, unread_set)
 
-        # Phase 1: Populate UI immediately with no unread indicators
-        self.app.call_from_thread(self._populate_spaces, spaces)
-        # Phase 2: Kick off background unread check
+        self._refresh_spaces()
+
+    def _spaces_unchanged(self, new_spaces: list[dict]) -> bool:
+        """Return True if new_spaces matches the currently displayed spaces."""
+        old = self._current_spaces
+        if len(old) != len(new_spaces):
+            return False
+        # Compare space resource names in order
+        return all(o.get("name") == n.get("name") for o, n in zip(old, new_spaces))
+
+    @work(thread=True)
+    def _refresh_spaces(self) -> None:
+        """Fetch fresh spaces from API and update the UI only if changed."""
+        from tui.cli import list_spaces_fresh
+
+        spaces = list_spaces_fresh()
+
+        # Only re-render if the spaces list has actually changed
+        if not self._spaces_unchanged(spaces):
+            self.app.call_from_thread(self._populate_spaces, spaces)
+
+        # Always kick off the unread check (unread states may have changed)
         self.app.call_from_thread(self._start_unread_check, spaces)
 
     def _start_unread_check(self, spaces: list[dict]) -> None:
@@ -103,6 +131,11 @@ class GroupsPanel(Static):
                 except Exception:
                     pass
 
+        # Cache the unread states for instant display next time
+        from tui.cache import get_cache
+
+        get_cache().set_unread_states({name: "unread" for name in unread_spaces})
+
         if unread_spaces:
             self.app.call_from_thread(self._update_unread_indicators, unread_spaces)
 
@@ -139,6 +172,8 @@ class GroupsPanel(Static):
             groups_list.append(
                 SpaceItem(space_name, display_name, has_unread=has_unread)
             )
+
+        self._current_spaces = spaces
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         """Handle space selection."""

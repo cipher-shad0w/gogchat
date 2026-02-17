@@ -8,6 +8,7 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import ListView
 
+from tui.cache import get_cache
 from tui.widgets import (
     ChatLog,
     ChatPanel,
@@ -64,22 +65,60 @@ class ChatApp(App):
         # Await the clear so old children are fully removed before we add new ones.
         chat_log = self.query_one("#chat-log", ChatLog)
         await chat_log.clear()
-        chat_log.write_message("[dim]Loading messages...[/dim]")
 
-        # Load messages in background
+        # Try to show cached messages immediately
+        from tui.cli import build_user_name_map
+
+        cached_messages = get_cache().get_messages(event.space_name)
+        cached_members = get_cache().get_members(event.space_name)
+
+        if cached_messages is not None:
+            # Show cached data instantly
+            user_name_map = (
+                build_user_name_map(cached_members) if cached_members else {}
+            )
+            await self._display_messages(cached_messages, user_name_map)
+        else:
+            chat_log.write_message("[dim]Loading messages...[/dim]")
+
+        # Always refresh in background (will silently update if data changed)
         self.load_messages(event.space_name)
 
     @work(thread=True)
     def load_messages(self, space_name: str) -> None:
         """Load messages from the selected space in a background thread."""
-        from tui.cli import list_messages, list_members, build_user_name_map
+        from tui.cli import list_messages_fresh, list_members_fresh, build_user_name_map
 
-        messages = list_messages(space_name)
-        memberships = list_members(space_name)
+        messages = list_messages_fresh(space_name)
+        memberships = list_members_fresh(space_name)
         user_name_map = build_user_name_map(memberships)
+
+        # Don't update if user has already switched to a different space
+        if self.current_space != space_name:
+            return
+
+        # Skip re-render if the data hasn't changed
+        if self._messages_unchanged(messages):
+            return
 
         # Update UI from the worker thread
         self.call_from_thread(self._display_messages, messages, user_name_map)
+
+    def _messages_unchanged(self, new_messages: list[dict]) -> bool:
+        """Return True if new_messages matches the currently displayed messages."""
+        old = self._current_messages
+        if len(old) != len(new_messages):
+            return False
+        if not old:
+            # Both empty
+            return True
+        # Compare first and last message resource names and text
+        for idx in (0, -1):
+            if old[idx].get("name") != new_messages[idx].get("name"):
+                return False
+            if old[idx].get("text") != new_messages[idx].get("text"):
+                return False
+        return True
 
     async def _display_messages(
         self, messages: list[dict], user_name_map: dict[str, str] | None = None
@@ -226,6 +265,8 @@ class ChatApp(App):
         from tui.cli import send_message
 
         if send_message(space_name, text):
+            # Invalidate cached messages so reload fetches fresh data
+            get_cache().invalidate_messages(space_name)
             # Reload messages to show the sent message
             self.call_from_thread(self.load_messages, space_name)
 

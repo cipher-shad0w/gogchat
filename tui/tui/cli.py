@@ -10,6 +10,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from tui.cache import get_cache
+
 logger = logging.getLogger(__name__)
 
 
@@ -401,3 +403,53 @@ def update_space_read_state(space_name: str, last_read_time: str) -> bool:
         return False
 
     return True
+
+def list_spaces_cached() -> list[dict]:
+    """Return spaces from cache if available, otherwise fetch from API."""
+    cached = get_cache().get_spaces()
+    if cached is not None:
+        return cached
+    spaces = list_spaces()
+    get_cache().set_spaces(spaces)
+    return spaces
+
+
+def list_spaces_fresh() -> list[dict]:
+    """Always fetch spaces from API and update the cache."""
+    spaces = list_spaces()
+    get_cache().set_spaces(spaces)
+    return spaces
+
+
+def list_messages_cached(space_name: str, limit: int = 25) -> list[dict]:
+    """Return messages from cache if available, otherwise fetch from API."""
+    cached = get_cache().get_messages(space_name)
+    if cached is not None:
+        return cached
+    messages = list_messages(space_name, limit)
+    get_cache().set_messages(space_name, messages)
+    return messages
+
+
+def list_messages_fresh(space_name: str, limit: int = 25) -> list[dict]:
+    """Always fetch messages from API and update the cache."""
+    messages = list_messages(space_name, limit)
+    get_cache().set_messages(space_name, messages)
+    return messages
+
+
+def list_members_cached(space_name: str) -> list[dict]:
+    """Return members from cache if available (with TTL), otherwise fetch from API."""
+    cached = get_cache().get_members(space_name)
+    if cached is not None:
+        return cached
+    members = list_members(space_name)
+    get_cache().set_members(space_name, members)
+    return members
+
+
+def list_members_fresh(space_name: str) -> list[dict]:
+    """Always fetch members from API and update the cache."""
+    members = list_members(space_name)
+    get_cache().set_members(space_name, members)
+    return members
