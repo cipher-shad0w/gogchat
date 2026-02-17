@@ -12,8 +12,11 @@ from tui.cache import get_cache
 from tui.widgets import (
     ChatLog,
     ChatPanel,
+    ConfirmDeleteScreen,
+    EditMessageScreen,
     GroupsPanel,
     InputPanel,
+    MessageActionScreen,
     MessageInput,
     MessageItem,
     NameInputScreen,
@@ -59,6 +62,7 @@ class ChatApp(App):
         ("q", "quit", "Quit"),
         ("r", "refresh_spaces", "Refresh"),
         ("e", "add_reaction", "React"),
+        ("a", "message_action", "Actions"),
     ]
 
     current_space: str | None = None
@@ -430,6 +434,98 @@ class ChatApp(App):
                 "Failed to add reaction",
                 severity="error",
                 timeout=3,
+            )
+
+    def action_message_action(self) -> None:
+        """Open the message action menu for the highlighted message."""
+        chat_log = self.query_one("#chat-log", ChatLog)
+        if chat_log.index is None:
+            return
+
+        highlighted = chat_log.highlighted_child
+        if not isinstance(highlighted, MessageItem):
+            return
+
+        if not highlighted.message_name:
+            return
+
+        msg_name = highlighted.message_name
+        body_text = highlighted.body_text
+
+        def _handle_action(action: str | None) -> None:
+            if action is None:
+                return
+            if action == "edit":
+                self._open_edit_dialog(msg_name, body_text)
+            elif action == "delete":
+                self._open_delete_confirm(msg_name)
+            elif action == "quote":
+                self._quote_reply(body_text)
+
+        self.push_screen(
+            MessageActionScreen(msg_name, body_text), callback=_handle_action
+        )
+
+    def _open_edit_dialog(self, message_name: str, current_text: str) -> None:
+        """Open the edit message dialog."""
+
+        def _handle_edit(new_text: str | None) -> None:
+            if new_text is None:
+                return
+            self._update_message(message_name, new_text)
+
+        self.push_screen(EditMessageScreen(current_text), callback=_handle_edit)
+
+    def _open_delete_confirm(self, message_name: str) -> None:
+        """Open the delete confirmation dialog."""
+
+        def _handle_delete(confirmed: bool) -> None:
+            if confirmed:
+                self._delete_message(message_name)
+
+        self.push_screen(ConfirmDeleteScreen(), callback=_handle_delete)
+
+    def _quote_reply(self, body_text: str) -> None:
+        """Pre-fill the message input with a quote of the selected message."""
+        message_input = self.query_one("#message-input", MessageInput)
+        # Format as blockquote
+        quoted_lines = [f"> {line}" for line in body_text.split("\n")]
+        quoted = "\n".join(quoted_lines) + "\n"
+        message_input.load_text(quoted)
+        message_input.focus()
+
+    @work(thread=True)
+    def _delete_message(self, message_name: str) -> None:
+        """Delete a message in a background thread."""
+        from tui.cli import delete_message
+
+        if delete_message(message_name):
+            if self.current_space:
+                get_cache().invalidate_messages(self.current_space)
+                self.call_from_thread(self.load_messages, self.current_space)
+            self.call_from_thread(
+                self.notify, "Message deleted", severity="information", timeout=3
+            )
+        else:
+            self.call_from_thread(
+                self.notify, "Failed to delete message", severity="error", timeout=5
+            )
+
+    @work(thread=True)
+    def _update_message(self, message_name: str, new_text: str) -> None:
+        """Update a message in a background thread."""
+        from tui.cli import update_message
+
+        if update_message(message_name, new_text):
+            if self.current_space:
+                get_cache().invalidate_messages(self.current_space)
+                self.call_from_thread(self.load_messages, self.current_space)
+            self.call_from_thread(
+                self.notify, "Message updated", severity="information", timeout=3
+            )
+        else:
+            self.call_from_thread(
+                self.notify, "Failed to update message", severity="error", timeout=5
             )
 
     def action_refresh_spaces(self) -> None:

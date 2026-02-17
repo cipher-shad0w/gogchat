@@ -265,3 +265,78 @@ Toast.-information {
 ReactionScreen {
     align: center middle;
 }
+
+/* Message action dialog */
+MessageActionScreen {
+    align: center middle;
+}
+
+#action-dialog {
+    width: 40;
+    height: auto;
+    max-height: 14;
+    border: round white;
+    background: #1e1e1e;
+    padding: 1 2;
+}
+
+#action-dialog-title {
+    width: 100%;
+    margin-bottom: 1;
+    text-style: bold;
+}
+
+#action-list {
+    height: auto;
+    max-height: 6;
+    background: #1e1e1e;
+}
+
+/* Edit message dialog */
+EditMessageScreen {
+    align: center middle;
+}
+
+#edit-dialog {
+    width: 70;
+    height: auto;
+    max-height: 16;
+    border: round white;
+    background: #1e1e1e;
+    padding: 1 2;
+}
+
+#edit-dialog-title {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#edit-dialog #edit-input {
+    width: 100%;
+    height: 8;
+    border: round gray;
+    background: #121212;
+}
+
+#edit-dialog #edit-input:focus {
+    border: round white;
+}
+
+/* Delete confirmation dialog */
+ConfirmDeleteScreen {
+    align: center middle;
+}
+
+#confirm-dialog {
+    width: 40;
+    height: auto;
+    max-height: 6;
+    border: round #e74c3c;
+    background: #1e1e1e;
+    padding: 1 2;
+}
+
+#confirm-dialog-title {
+    width: 100%;
+    text-align: center;
+}

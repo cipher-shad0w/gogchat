@@ -346,6 +346,86 @@ def send_message(space_name: str, text: str) -> bool:
     return True
 
 
+def delete_message(message_name: str) -> bool:
+    """Delete a message from a Google Chat space.
+
+    Runs: gogchat messages delete {message_name}
+
+    Args:
+        message_name: The resource name of the message
+            (e.g., "spaces/AAAA/messages/BBBB").
+
+    Returns:
+        True if the message was deleted successfully, False otherwise.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        logger.error("Failed to find gogchat binary: %s", e)
+        return False
+
+    try:
+        subprocess.run(
+            [gogchat_path, "messages", "delete", message_name],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
+        logger.error(
+            "Failed to delete message %s: %s (exit code %d, stderr: %s)",
+            message_name,
+            e,
+            e.returncode,
+            e.stderr,
+        )
+        return False
+
+    return True
+
+
+def update_message(message_name: str, text: str) -> bool:
+    """Update (edit) a message in a Google Chat space.
+
+    Runs: gogchat messages update {message_name} --text {text}
+
+    Args:
+        message_name: The resource name of the message.
+        text: The new message text content.
+
+    Returns:
+        True if the message was updated successfully, False otherwise.
+    """
+    try:
+        gogchat_path = get_gogchat_path()
+    except FileNotFoundError as e:
+        logger.error("Failed to find gogchat binary: %s", e)
+        return False
+
+    try:
+        subprocess.run(
+            [gogchat_path, "messages", "update", message_name, "--text", text],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        if _is_auth_error(e.stderr):
+            logger.error("AUTH_ERROR: %s", e.stderr.strip())
+        logger.error(
+            "Failed to update message %s: %s (exit code %d, stderr: %s)",
+            message_name,
+            e,
+            e.returncode,
+            e.stderr,
+        )
+        return False
+
+    return True
+
+
 def list_members(space_name: str) -> list[dict]:
     """List members of a Google Chat space.
 

@@ -267,6 +267,7 @@ class MessageItem(ListItem):
         self.sender_user_id = sender_user_id
         self.is_name_resolved = is_name_resolved
         self.prefix_width = prefix_width
+        self.body_text = body_text
         self.message_name = message_name
 
 
@@ -371,30 +372,89 @@ class NameInputScreen(ModalScreen[str | None]):
         self.dismiss(None)
 
 
-class ReactionScreen(ModalScreen[str | None]):
-    """Modal dialog to select an emoji reaction for a message."""
+class MessageActionScreen(ModalScreen[str | None]):
+    """Modal dialog showing available actions for a message."""
 
     BINDINGS = [("escape", "cancel", "Cancel")]
 
-    REACTIONS = ["👍", "👎", "❤️", "😂", "😮", "😢", "🎉", "🤔"]
+    def __init__(self, message_name: str, body_text: str) -> None:
+        self.message_name = message_name
+        self.body_text = body_text
+        super().__init__()
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="reaction-dialog"):
-            yield Label(
-                "Add reaction  " + "  ".join(self.REACTIONS),
-                id="reaction-dialog-title",
+        with Vertical(id="action-dialog"):
+            yield Label("Message Actions", id="action-dialog-title")
+            yield ListView(
+                ListItem(Label("📝  Edit message"), id="action-edit"),
+                ListItem(Label("🗑️  Delete message"), id="action-delete"),
+                ListItem(Label("💬  Quote reply"), id="action-quote"),
+                id="action-list",
             )
-            yield Input(placeholder="Type emoji or paste…", id="reaction-input")
 
     def on_mount(self) -> None:
-        self.query_one("#reaction-input", Input).focus()
+        self.query_one("#action-list", ListView).focus()
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        value = event.value.strip()
-        if value:
-            self.dismiss(value)
-        else:
-            self.dismiss(None)
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        action_id = event.item.id
+        if action_id == "action-edit":
+            self.dismiss("edit")
+        elif action_id == "action-delete":
+            self.dismiss("delete")
+        elif action_id == "action-quote":
+            self.dismiss("quote")
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+class EditMessageScreen(ModalScreen[str | None]):
+    """Modal dialog to edit a message's text."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, current_text: str) -> None:
+        self.current_text = current_text
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="edit-dialog"):
+            yield Label("Edit message:", id="edit-dialog-title")
+            yield TextArea(self.current_text, id="edit-input")
+
+    def on_mount(self) -> None:
+        self.query_one("#edit-input", TextArea).focus()
+
+    def _on_key(self, event: events.Key) -> None:
+        if event.key == "ctrl+s":
+            # Save with Ctrl+S
+            text = self.query_one("#edit-input", TextArea).text.strip()
+            if text:
+                self.dismiss(text)
+            return
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class ConfirmDeleteScreen(ModalScreen[bool]):
+    """Modal confirmation dialog for deleting a message."""
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("y", "confirm", "Yes"),
+        ("n", "cancel", "No"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="confirm-dialog"):
+            yield Label(
+                "Delete this message? [bold](y/n)[/bold]",
+                id="confirm-dialog-title",
+            )
+
+    def action_confirm(self) -> None:
+        self.dismiss(True)
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
