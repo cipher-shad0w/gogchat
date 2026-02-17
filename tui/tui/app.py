@@ -1,5 +1,6 @@
 """Main application class for the gchat TUI."""
 
+from datetime import datetime
 from pathlib import Path
 
 from textual import work
@@ -111,8 +112,20 @@ class ChatApp(App):
 
             text = msg.get("text", "")
 
+            # Parse the send time from createTime (e.g. "2025-01-15T11:23:45.123Z")
+            time_str = ""
+            create_time = msg.get("createTime", "")
+            if create_time:
+                try:
+                    dt = datetime.fromisoformat(create_time.replace("Z", "+00:00"))
+                    # Convert to local time
+                    local_dt = dt.astimezone()
+                    time_str = f"[dim][{local_dt.strftime('%H:%M')}][/dim] "
+                except (ValueError, OSError):
+                    pass
+
             # Create MessageItem directly with metadata
-            content = f"[bold]{sender_name}:[/bold] {text}"
+            content = f"{time_str}[bold]{sender_name}:[/bold] {text}"
             item = MessageItem(
                 content,
                 sender_user_id=user_id if user_id else None,
