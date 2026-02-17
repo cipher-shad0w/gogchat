@@ -43,13 +43,14 @@ jobs:
           version: "~> v2"
           args: release --clean
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GOGCHAT_CLIENT_ID: ${{ secrets.GOGCHAT_CLIENT_ID }}
           GOGCHAT_CLIENT_SECRET: ${{ secrets.GOGCHAT_CLIENT_SECRET }}
 
       - name: Upload TUI binaries to release
         env:
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           for archive in tui-dist/gogchat-tui_*/*.tar.gz; do
             echo "Uploading $archive"
