@@ -13,6 +13,55 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _names_file_path() -> Path:
+    """Return the path to the user name overrides file."""
+    return Path.home() / ".config" / "gogchat" / "names.json"
+
+
+def load_name_overrides() -> dict[str, str]:
+    """Load user display-name overrides from ~/.config/gogchat/names.json.
+
+    Returns:
+        Dict mapping "users/123" to a user-chosen display name.
+        Returns an empty dict if the file is missing or cannot be parsed.
+    """
+    path = _names_file_path()
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return {
+                k: v
+                for k, v in data.items()
+                if isinstance(k, str) and isinstance(v, str)
+            }
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("Could not load name overrides from %s: %s", path, e)
+    return {}
+
+
+def save_name_override(user_id: str, display_name: str) -> None:
+    """Persist a single user display-name override to names.json.
+
+    Args:
+        user_id: The user resource name (e.g. "users/123456789").
+        display_name: The human-readable name chosen by the user.
+    """
+    path = _names_file_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    existing = load_name_overrides()
+    existing[user_id] = display_name
+
+    try:
+        path.write_text(
+            json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+    except OSError as e:
+        logger.error("Could not save name override to %s: %s", path, e)
+
+
 def get_gogchat_path() -> str:
     """Find the path to the gogchat binary.
 
@@ -239,6 +288,9 @@ def list_members(space_name: str) -> list[dict]:
 def build_user_name_map(memberships: list[dict]) -> dict[str, str]:
     """Build a mapping from user resource names to display names.
 
+    Merges names from the API membership data with local overrides
+    from ~/.config/gogchat/names.json.  Local overrides take priority.
+
     Args:
         memberships: List of membership objects from list_members.
 
@@ -252,4 +304,7 @@ def build_user_name_map(memberships: list[dict]) -> dict[str, str]:
         display_name = member.get("displayName", "")
         if user_name and display_name:
             name_map[user_name] = display_name
+
+    # Local overrides take priority over API display names
+    name_map.update(load_name_overrides())
     return name_map

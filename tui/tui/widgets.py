@@ -2,8 +2,11 @@
 
 from textual import events, work
 from textual.app import ComposeResult
+from textual.await_remove import AwaitRemove
+from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Label, ListItem, ListView, Static, TextArea
+from textual.screen import ModalScreen
+from textual.widgets import Input, Label, ListItem, ListView, Static, TextArea
 
 
 class SpaceItem(ListItem):
@@ -79,10 +82,23 @@ class GroupsPanel(Static):
 class MessageItem(ListItem):
     """A list item representing a single chat message."""
 
-    def __init__(self, content: str) -> None:
-        """Initialize with message content (Rich markup string)."""
+    def __init__(
+        self,
+        content: str,
+        sender_user_id: str | None = None,
+        is_name_resolved: bool = True,
+    ) -> None:
+        """Initialize with message content (Rich markup string).
+
+        Args:
+            content: Rich-markup formatted message text.
+            sender_user_id: The sender's resource name (e.g. "users/123").
+            is_name_resolved: False when the displayed name is a raw user ID.
+        """
         super().__init__(Label(content, markup=True))
         self.message_content = content
+        self.sender_user_id = sender_user_id
+        self.is_name_resolved = is_name_resolved
 
 
 class ChatLog(ListView):
@@ -103,7 +119,7 @@ class ChatLog(ListView):
         self.append(MessageItem(content))
         self.index = len(self._raw_entries) - 1
 
-    def clear(self) -> "ChatLog":
+    def clear(self) -> AwaitRemove:
         """Clear all messages."""
         self._raw_entries.clear()
         return super().clear()
@@ -153,3 +169,34 @@ class InputPanel(Static):
     def on_mount(self) -> None:
         """Set the border title when mounted."""
         self.border_title = "Message"
+
+
+class NameInputScreen(ModalScreen[str | None]):
+    """Modal dialog to assign a display name to an unknown user."""
+
+    BINDINGS = [("escape", "cancel", "Cancel")]
+
+    def __init__(self, user_id: str) -> None:
+        self.user_id = user_id
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="name-dialog"):
+            yield Label(
+                f"Enter name for [bold]{self.user_id}[/bold]:",
+                id="name-dialog-title",
+            )
+            yield Input(placeholder="Display name…", id="name-input")
+
+    def on_mount(self) -> None:
+        self.query_one("#name-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        value = event.value.strip()
+        if value:
+            self.dismiss(value)
+        else:
+            self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)

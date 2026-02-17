@@ -139,3 +139,32 @@ Widget {
     scrollbar-background-active: #121212;
     scrollbar-corner-color: #121212;
 }
+
+/* Name input modal dialog */
+NameInputScreen {
+    align: center middle;
+}
+
+#name-dialog {
+    width: 60;
+    height: auto;
+    max-height: 10;
+    border: round white;
+    background: #1e1e1e;
+    padding: 1 2;
+}
+
+#name-dialog-title {
+    width: 100%;
+    margin-bottom: 1;
+}
+
+#name-dialog #name-input {
+    width: 100%;
+    border: round gray;
+    background: #121212;
+}
+
+#name-dialog #name-input:focus {
+    border: round white;
+}
